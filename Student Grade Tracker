@@ -1,0 +1,101 @@
+class Student:
+    def __init__(self, name):
+        self.name = name
+        self.subjects = {}
+
+    def add_grade(self, subject, grade):
+        """Add grade for a specific subject."""
+        if subject not in self.subjects:
+            self.subjects[subject] = []
+        self.subjects[subject].append(grade)
+
+    def calculate_average(self):
+        """Calculate the average grade across all subjects."""
+        total_grades = []
+        for grades in self.subjects.values():
+            total_grades.extend(grades)
+        return sum(total_grades) / len(total_grades) if total_grades else 0
+
+    def calculate_gpa(self):
+        """Calculate GPA based on average grade."""
+        avg_grade = self.calculate_average()
+        if avg_grade >= 90:
+            return 4.0
+        elif avg_grade >= 80:
+            return 3.0
+        elif avg_grade >= 70:
+            return 2.0
+        elif avg_grade >= 60:
+            return 1.0
+        else:
+            return 0.0
+
+    def calculate_letter_grade(self):
+        """Calculate the letter grade based on the average grade."""
+        avg_grade = self.calculate_average()
+        if avg_grade >= 90:
+            return 'A'
+        elif avg_grade >= 80:
+            return 'B'
+        elif avg_grade >= 70:
+            return 'C'
+        elif avg_grade >= 60:
+            return 'D'
+        else:
+            return 'F'
+
+    def display_student_info(self):
+        """Display the student’s grades, average, GPA, and letter grade."""
+        print(f"\nStudent: {self.name}")
+        for subject, grades in self.subjects.items():
+            print(f"{subject}: {grades}")
+        avg = self.calculate_average()
+        gpa = self.calculate_gpa()
+        letter_grade = self.calculate_letter_grade()
+        print(f"Average Grade: {avg:.2f}")
+        print(f"GPA: {gpa:.2f}")
+        print(f"Letter Grade: {letter_grade}")
+
+# Function to add a grade to a student
+def add_grade_to_student(students):
+    name = input("Enter the student's name: ")
+    student = next((s for s in students if s.name == name), None)
+    if not student:
+        print(f"Student {name} not found. Adding new student.")
+        student = Student(name)
+        students.append(student)
+    
+    subject = input(f"Enter the subject for {name}: ")
+    grade = float(input(f"Enter Marks of {subject}: "))
+    student.add_grade(subject, grade)
+
+# Function to display all students' information
+def display_all_students(students):
+    if not students:
+        print("No students added yet.")
+    for student in students:
+        student.display_student_info()
+
+# Main function to run the program
+def main():
+    students = []
+    while True:
+        print("\n--- Student Grade Tracker ---")
+        print("1. Add grade to a student")
+        print("2. Display all students' information")
+        print("3. Exit")
+        
+        choice = input("Enter your choice (1-3): ")
+        
+        if choice == '1':
+            add_grade_to_student(students)
+        elif choice == '2':
+            display_all_students(students)
+        elif choice == '3':
+            print("Exiting the program.")
+            break
+        else:
+            print("Invalid choice. Please enter a number between 1 and 3.")
+
+if __name__ == "__main__":
+    main()
