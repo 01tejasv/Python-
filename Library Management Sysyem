@@ -1,0 +1,248 @@
+import sqlite3
+import datetime
+import sys
+
+# Step 1: Setup Database (SQLite)
+def create_db():
+    conn = sqlite3.connect('library.db')
+    cursor = conn.cursor()
+
+    # Create Library Items Table (Books, Magazines, DVDs)
+    cursor.execute('''CREATE TABLE IF NOT EXISTS items (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        title TEXT,
+                        author TEXT,
+                        category TEXT,
+                        item_type TEXT,
+                        available INTEGER,
+                        due_date TEXT)''')
+
+    # Create Users Table (for simplicity, we assume one generic user for now)
+    cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+                        username TEXT PRIMARY KEY,
+                        password TEXT)''')
+
+    conn.commit()
+    conn.close()
+
+# Step 2: User Authentication (for simplicity, only username and password)
+def register_user(username, password):
+    conn = sqlite3.connect('library.db')
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM users WHERE username=?", (username,))
+    if cursor.fetchone():
+        return "Username already taken!"
+    
+    cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", 
+                   (username, password))
+    
+    conn.commit()
+    conn.close()
+    return "User registered successfully!"
+
+def authenticate_user(username, password):
+    conn = sqlite3.connect('library.db')
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT password FROM users WHERE username=?", (username,))
+    stored_password = cursor.fetchone()
+
+    if stored_password and stored_password[0] == password:
+        return True
+    return False
+
+# Step 3: Library Item Management (Add, Edit, Delete)
+def add_item(title, author, category, item_type):
+    conn = sqlite3.connect('library.db')
+    cursor = conn.cursor()
+
+    cursor.execute("INSERT INTO items (title, author, category, item_type, available, due_date) VALUES (?, ?, ?, ?, ?, ?)",
+                   (title, author, category, item_type, 1, None))  # Item is available initially
+
+    conn.commit()
+    conn.close()
+
+def edit_item(item_id, title, author, category, item_type):
+    conn = sqlite3.connect('library.db')
+    cursor = conn.cursor()
+
+    cursor.execute("UPDATE items SET title=?, author=?, category=?, item_type=? WHERE id=?",
+                   (title, author, category, item_type, item_id))
+
+    conn.commit()
+    conn.close()
+
+def delete_item(item_id):
+    conn = sqlite3.connect('library.db')
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM items WHERE id=?", (item_id,))
+
+    conn.commit()
+    conn.close()
+
+def get_items():
+    conn = sqlite3.connect('library.db')
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM items")
+    items = cursor.fetchall()
+
+    conn.close()
+    return items
+
+def search_items(query, search_by='title'):
+    conn = sqlite3.connect('library.db')
+    cursor = conn.cursor()
+
+    if search_by == 'title':
+        cursor.execute("SELECT * FROM items WHERE title LIKE ?", ('%' + query + '%',))
+    elif search_by == 'author':
+        cursor.execute("SELECT * FROM items WHERE author LIKE ?", ('%' + query + '%',))
+    elif search_by == 'category':
+        cursor.execute("SELECT * FROM items WHERE category LIKE ?", ('%' + query + '%',))
+
+    items = cursor.fetchall()
+    conn.close()
+    return items
+
+# Step 4: Checkout and Return System
+def checkout_item(item_id, due_date):
+    conn = sqlite3.connect('library.db')
+    cursor = conn.cursor()
+
+    cursor.execute("UPDATE items SET available = 0, due_date = ? WHERE id=?", 
+                   (due_date, item_id))
+
+    conn.commit()
+    conn.close()
+
+def return_item(item_id):
+    conn = sqlite3.connect('library.db')
+    cursor = conn.cursor()
+
+    # Check if the item is overdue
+    cursor.execute("SELECT due_date FROM items WHERE id=?", (item_id,))
+    due_date = cursor.fetchone()
+
+    if not due_date or not due_date[0]:
+        print("This item is not checked out.")
+        return
+
+    due_date = datetime.datetime.strptime(due_date[0], "%Y-%m-%d").date()
+    today = datetime.date.today()
+
+    # Calculate overdue fine
+    if today > due_date:
+        overdue_days = (today - due_date).days
+        fine = overdue_days * 1  # $1 per overdue day
+        print(f"Item is overdue by {overdue_days} days. Fine: ${fine}")
+    else:
+        print("Item returned on time. No fine.")
+
+    # Reset the item as available
+    cursor.execute("UPDATE items SET available = 1, due_date = NULL WHERE id=?", (item_id,))
+
+    conn.commit()
+    conn.close()
+
+# Step 5: CLI Interface
+def display_menu():
+    print("\n=== Library Management System ===")
+    print("1. Login")
+    print("2. Register")
+    print("3. Add Library Item")
+    print("4. Edit Library Item")
+    print("5. Delete Library Item")
+    print("6. View All Items")
+    print("7. Search Items")
+    print("8. Checkout Item")
+    print("9. Return Item")
+    print("10. Exit")
+    choice = input("Enter your choice: ")
+    return choice
+
+def main():
+    create_db()
+
+    print("Welcome to the Library Management System!")
+    
+    while True:
+        choice = display_menu()
+        
+        if choice == '1':  # Login
+            username = input("Enter username: ")
+            password = input("Enter password: ")
+            if authenticate_user(username, password):
+                print("Login successful!")
+            else:
+                print("Invalid credentials!")
+        
+        elif choice == '2':  # Register
+            username = input("Enter username: ")
+            password = input("Enter password: ")
+            result = register_user(username, password)
+            print(result)
+        
+        elif choice == '3':  # Add Library Item
+            title = input("Enter title: ")
+            author = input("Enter author: ")
+            category = input("Enter category (e.g., Fiction, Non-fiction, Science, etc.): ")
+            item_type = input("Enter item type (book, magazine, dvd): ")
+            add_item(title, author, category, item_type)
+            print("Library item added successfully!")
+        
+        elif choice == '4':  # Edit Library Item
+            item_id = int(input("Enter item ID to edit: "))
+            title = input("Enter new title: ")
+            author = input("Enter new author: ")
+            category = input("Enter new category: ")
+            item_type = input("Enter new item type (book, magazine, dvd): ")
+            edit_item(item_id, title, author, category, item_type)
+            print("Library item updated successfully!")
+        
+        elif choice == '5':  # Delete Library Item
+            item_id = int(input("Enter item ID to delete: "))
+            delete_item(item_id)
+            print("Library item deleted successfully!")
+        
+        elif choice == '6':  # View All Items
+            items = get_items()
+            if items:
+                print("\nLibrary Items:")
+                for item in items:
+                    print(f"ID: {item[0]}, Title: {item[1]}, Author: {item[2]}, Category: {item[3]}, Type: {item[4]}, Available: {'Yes' if item[5] else 'No'}, Due Date: {item[6]}")
+            else:
+                print("No items found.")
+        
+        elif choice == '7':  # Search Items
+            query = input("Enter search query: ")
+            search_by = input("Search by (title, author, category): ").lower()
+            items = search_items(query, search_by)
+            if items:
+                print("\nSearch Results:")
+                for item in items:
+                    print(f"ID: {item[0]}, Title: {item[1]}, Author: {item[2]}, Category: {item[3]}, Type: {item[4]}")
+            else:
+                print("No items found matching your query.")
+        
+        elif choice == '8':  # Checkout Item
+            item_id = int(input("Enter item ID to checkout: "))
+            due_date = input("Enter due date (YYYY-MM-DD): ")
+            checkout_item(item_id, due_date)
+            print("Item checked out successfully!")
+        
+        elif choice == '9':  # Return Item
+            item_id = int(input("Enter item ID to return: "))
+            return_item(item_id)
+        
+        elif choice == '10':  # Exit
+            print("Exiting the system. Goodbye!")
+            sys.exit()
+        
+        else:
+            print("Invalid choice. Please try again.")
+
+if __name__ == "__main__":
+    main()
