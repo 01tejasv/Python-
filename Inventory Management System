@@ -1,0 +1,193 @@
+import sqlite3
+import hashlib
+import sys
+
+# Step 1: Setup the Database (SQLite)
+def create_db():
+    conn = sqlite3.connect('inventory.db')
+    cursor = conn.cursor()
+
+    # Create Products table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS products (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT,
+                        category TEXT,
+                        price REAL,
+                        stock INTEGER)''')
+
+    # Create Users table for authentication
+    cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+                        username TEXT PRIMARY KEY,
+                        password TEXT)''')
+
+    conn.commit()
+    conn.close()
+
+# Step 2: User Authentication (Login and Registration)
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def register_user(username, password):
+    conn = sqlite3.connect('inventory.db')
+    cursor = conn.cursor()
+
+    # Check if user already exists
+    cursor.execute("SELECT * FROM users WHERE username=?", (username,))
+    if cursor.fetchone():
+        return "Username already taken!"
+    
+    # Insert new user into the database
+    cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", 
+                   (username, hash_password(password)))
+    
+    conn.commit()
+    conn.close()
+    return "User registered successfully!"
+
+def authenticate_user(username, password):
+    conn = sqlite3.connect('inventory.db')
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT password FROM users WHERE username=?", (username,))
+    stored_password = cursor.fetchone()
+
+    if stored_password and stored_password[0] == hash_password(password):
+        return True
+    return False
+
+# Step 3: Product Management
+def add_product(name, category, price, stock):
+    conn = sqlite3.connect('inventory.db')
+    cursor = conn.cursor()
+
+    cursor.execute("INSERT INTO products (name, category, price, stock) VALUES (?, ?, ?, ?)",
+                   (name, category, price, stock))
+
+    conn.commit()
+    conn.close()
+
+def edit_product(product_id, name, category, price, stock):
+    conn = sqlite3.connect('inventory.db')
+    cursor = conn.cursor()
+
+    cursor.execute("UPDATE products SET name=?, category=?, price=?, stock=? WHERE id=?",
+                   (name, category, price, stock, product_id))
+
+    conn.commit()
+    conn.close()
+
+def delete_product(product_id):
+    conn = sqlite3.connect('inventory.db')
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM products WHERE id=?", (product_id,))
+
+    conn.commit()
+    conn.close()
+
+def get_products():
+    conn = sqlite3.connect('inventory.db')
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM products")
+    products = cursor.fetchall()
+
+    conn.close()
+    return products
+
+def low_stock_alert(threshold=10):
+    conn = sqlite3.connect('inventory.db')
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM products WHERE stock <= ?", (threshold,))
+    low_stock_products = cursor.fetchall()
+
+    conn.close()
+    return low_stock_products
+
+# Step 4: Command-line Interface (CLI)
+def display_menu():
+    print("\n=== Inventory Management System ===")
+    print("1. Login")
+    print("2. Register")
+    print("3. View All Products")
+    print("4. Add Product")
+    print("5. Edit Product")
+    print("6. Delete Product")
+    print("7. Low Stock Alert")
+    print("8. Exit")
+    choice = input("Enter your choice: ")
+    return choice
+
+def main():
+    create_db()
+    
+    print("Welcome to the Inventory Management System!")
+
+    while True:
+        choice = display_menu()
+        
+        if choice == '1':  # Login
+            username = input("Enter username: ")
+            password = input("Enter password: ")
+            if authenticate_user(username, password):
+                print("Login successful!")
+            else:
+                print("Invalid credentials!")
+        
+        elif choice == '2':  # Register
+            username = input("Enter username: ")
+            password = input("Enter password: ")
+            result = register_user(username, password)
+            print(result)
+        
+        elif choice == '3':  # View All Products
+            products = get_products()
+            if products:
+                print("\nProducts in Inventory:")
+                for product in products:
+                    print(f"ID: {product[0]}, Name: {product[1]}, Category: {product[2]}, Price: {product[3]}, Stock: {product[4]}")
+            else:
+                print("No products found.")
+        
+        elif choice == '4':  # Add Product
+            name = input("Enter product name: ")
+            category = input("Enter product category: ")
+            price = float(input("Enter product price: "))
+            stock = int(input("Enter product stock: "))
+            add_product(name, category, price, stock)
+            print("Product added successfully!")
+        
+        elif choice == '5':  # Edit Product
+            product_id = int(input("Enter product ID to edit: "))
+            name = input("Enter new product name: ")
+            category = input("Enter new product category: ")
+            price = float(input("Enter new product price: "))
+            stock = int(input("Enter new product stock: "))
+            edit_product(product_id, name, category, price, stock)
+            print("Product updated successfully!")
+        
+        elif choice == '6':  # Delete Product
+            product_id = int(input("Enter product ID to delete: "))
+            delete_product(product_id)
+            print("Product deleted successfully!")
+        
+        elif choice == '7':  # Low Stock Alert
+            threshold = int(input("Enter stock threshold for low stock alert: "))
+            low_stock = low_stock_alert(threshold)
+            if low_stock:
+                print("\nLow Stock Products:")
+                for product in low_stock:
+                    print(f"ID: {product[0]}, Name: {product[1]}, Stock: {product[4]}")
+            else:
+                print("No products with low stock.")
+        
+        elif choice == '8':  # Exit
+            print("Exiting the system. Goodbye!")
+            sys.exit()
+        
+        else:
+            print("Invalid choice. Please try again.")
+
+if __name__ == "__main__":
+    main()
